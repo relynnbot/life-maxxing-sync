@@ -1674,7 +1674,7 @@ function gymRenderHome() {
   document.getElementById('gym-today-date').textContent   = formatDateLong();
 
   const g = getGreeting();
-  document.getElementById('gym-greeting').innerHTML = `${g}, <span style="color:var(--accent);">Soham</span>`;
+  document.getElementById('gym-greeting').innerHTML = `${g}, <span style="color:var(--accent);">Relynn</span>`;
 
   // Stats
   const startOfWeek = new Date(now); startOfWeek.setDate(now.getDate() - now.getDay()); startOfWeek.setHours(0,0,0,0);
@@ -2559,7 +2559,7 @@ function healthRenderHome() {
   document.getElementById('health-date-display').textContent = formatDateShort();
   document.getElementById('health-today-date').textContent   = formatDateLong();
   const g = getGreeting();
-  document.getElementById('health-greeting').innerHTML = `${g}, <span style="color:var(--accent-green);">Soham</span>`;
+  document.getElementById('health-greeting').innerHTML = `${g}, <span style="color:var(--accent-green);">Relynn</span>`;
 
   const now = new Date();
   const startOfWeek = new Date(now);
@@ -3012,7 +3012,7 @@ function careerRenderHome() {
   document.getElementById('career-date-display').textContent = formatDateShort();
   document.getElementById('career-today-date').textContent   = formatDateLong();
   const g = getGreeting();
-  document.getElementById('career-greeting').innerHTML = `${g}, <span style="color:var(--accent-purple);">Soham</span>`;
+  document.getElementById('career-greeting').innerHTML = `${g}, <span style="color:var(--accent-purple);">Relynn</span>`;
 
   // Stats from careerHistoryByDate (all dates with tasks)
   const allDates = Object.keys(careerHistoryByDate).filter(k => {

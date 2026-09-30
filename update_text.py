@@ -7,7 +7,7 @@ content = content.replace("return 'MORNING';", "return 'Morning';")
 content = content.replace("return 'AFTERNOON';", "return 'Afternoon';")
 content = content.replace("return 'EVENING';", "return 'Evening';")
 
-content = content.replace(">SOHAM</span>", ">Soham</span>")
+content = content.replace(">RELYNN</span>", ">Relynn</span>")
 
 content = content.replace(
     "return new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase();",
