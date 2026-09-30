@@ -1,0 +1,7 @@
+<!-- Minimal HTML integration -->
+<!-- Add these two lines right before </body> in lifemaxxing-v1.html -->
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./sync-adapter.js"></script>
+
+<!-- No other changes needed. The adapter transparently mirrors the 6 localStorage keys. -->
