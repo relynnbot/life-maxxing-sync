@@ -830,6 +830,14 @@ html, body { font-size: 16px; height: 100%; background: var(--bg); color: var(--
 .edit-input:focus { border-color: var(--accent); }
 .delete-ex-btn { width: 28px; height: 28px; border-radius: 6px; background: #ff474715; border: 1px solid #ff474730; color: var(--red); font-size: 14px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
 .add-ex-btn { width: 100%; padding: 10px; margin-top: 10px; background: var(--surface2); border: 1px dashed var(--border); border-radius: 6px; color: var(--text3); font-family: var(--font-m); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; }
+.emoji-btn { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 8px; background: var(--surface3); border: 1px solid var(--border); font-size: 20px; cursor: pointer; flex-shrink: 0; transition: border-color 0.15s; }
+.emoji-btn:hover { border-color: var(--accent); }
+.emoji-btn-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.emoji-btn-hint { font-size: 9px; color: var(--text3); letter-spacing: 2px; text-transform: uppercase; font-family: var(--font-m); }
+.emoji-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 12px; }
+.emoji-option { display: flex; align-items: center; justify-content: center; height: 44px; border-radius: 8px; background: var(--surface2); border: 1px solid var(--border); font-size: 20px; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.emoji-option:hover { border-color: var(--accent); }
+.emoji-option.selected { background: #e8ff4720; border-color: var(--accent); }
 .modal-input { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: var(--font-m); font-size: 14px; padding: 12px 14px; width: 100%; outline: none; margin-bottom: 10px; }
 .modal-input:focus { border-color: var(--accent); }
 .modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
@@ -1374,6 +1382,17 @@ html, body { font-size: 16px; height: 100%; background: var(--bg); color: var(--
     <input class="modal-input" id="gym-new-ex-note" placeholder="Form tip...">
     <button class="modal-btn modal-btn-primary" onclick="gymConfirmAddEx()">ADD EXERCISE</button>
     <button class="modal-btn modal-btn-secondary" onclick="gymCloseModal('gym-add-ex-modal')">CANCEL</button>
+  </div>
+</div>
+
+<!-- GYM EMOJI PICKER MODAL -->
+<div class="modal-overlay" id="gym-emoji-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Day Emoji</div>
+    <div class="modal-label" id="gym-emoji-target"></div>
+    <div class="emoji-grid" id="gym-emoji-grid"></div>
+    <button class="modal-btn modal-btn-secondary" onclick="gymCloseModal('gym-emoji-modal')">CANCEL</button>
   </div>
 </div>
 
@@ -2307,6 +2326,11 @@ function gymRenderEdit() {
       </div>
       <div class="edit-day-body-wrapper">
       <div class="edit-day-body">
+        <div style="font-size:9px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;">EMOJI</div>
+        <div class="emoji-btn-row">
+          <div class="emoji-btn" onclick="gymOpenEmojiPicker('${day.id}')" title="Change emoji">${day.emoji || '❔'}</div>
+          <div class="emoji-btn-hint">Tap to change</div>
+        </div>
         <div style="font-size:9px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;">DAY TITLE</div>
         <input class="edit-input" value="${day.label}" placeholder="Day title..." style="width:100%;margin-bottom:14px;font-size:13px;" oninput="gymUpdateDayLabel('${day.id}',this.value)">
         <div style="font-size:9px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">EXERCISES</div>
@@ -2331,6 +2355,36 @@ function gymToggleEditDay(dayId) {
   card.classList.toggle('open');
 }
 
+let gymEmojiTargetDay = null;
+const GYM_EMOJI_CHOICES = ['🔥','💪','🦵','😴','🏋️','🏃','🥊','🤸','🧘','⚡','🚀','🎯','🛡️','🐺','🦁','🦍','🐲','🥇','🏆','☀️','🌙','🌊','⛰️','🧗','🚴','🤼','🏒','🥋','🫀','🧠','💥','🪨'];
+
+function gymOpenEmojiPicker(dayId) {
+  gymEmojiTargetDay = dayId;
+  const day = gymPlan.find(d => d.id === dayId); if (!day) return;
+  document.getElementById('gym-emoji-target').textContent = day.day;
+  gymRenderEmojiGrid();
+  document.getElementById('gym-emoji-modal').classList.add('visible');
+}
+
+function gymRenderEmojiGrid() {
+  const grid = document.getElementById('gym-emoji-grid');
+  if (!grid) return;
+  const day = gymPlan.find(d => d.id === gymEmojiTargetDay);
+  grid.innerHTML = GYM_EMOJI_CHOICES.map(e => `
+    <div class="emoji-option${day && day.emoji === e ? ' selected' : ''}" onclick="gymPickEmoji('${e}')">${e}</div>`).join('');
+}
+
+function gymPickEmoji(emoji) {
+  const day = gymPlan.find(d => d.id === gymEmojiTargetDay);
+  if (!day) return;
+  day.emoji = emoji;
+  gymCloseModal('gym-emoji-modal');
+  gymRenderEdit();
+  const card = document.getElementById(`gym-edit-day-${day.id}`);
+  if (card) card.classList.add('open');
+  gymMarkDirty();
+}
+
 function gymUpdateDayLabel(dayId, val) {
   const day = gymPlan.find(d => d.id === dayId);
   if (day) { day.label = val; gymMarkDirty(); }
@@ -2347,9 +2401,10 @@ function gymDeleteExercise(dayId, exId) {
   const day = gymPlan.find(d => d.id === dayId);
   if (!day) return;
   day.exercises = day.exercises.filter(e => e.id !== exId);
-  gymMarkDirty(); gymRenderEdit();
+  gymRenderEdit();
   const card = document.getElementById(`gym-edit-day-${dayId}`);
   if (card) { card.classList.add('open'); }
+  gymMarkDirty();
 }
 
 function gymOpenAddExModal(dayId) {
@@ -2396,9 +2451,10 @@ function gymConfirmAddEx() {
   const day = gymPlan.find(d => d.id === gymAddExTargetDay); if (!day) return;
   const newId = 'e' + Date.now();
   day.exercises.push({ id: newId, name, sets, reps, rest, muscle, note });
-  gymMarkDirty(); gymCloseModal('gym-add-ex-modal'); gymRenderEdit();
+  gymCloseModal('gym-add-ex-modal'); gymRenderEdit();
   const card = document.getElementById(`gym-edit-day-${gymAddExTargetDay}`);
   if (card) card.classList.add('open');
+  gymMarkDirty();
   showToast('EXERCISE ADDED');
 }
 
