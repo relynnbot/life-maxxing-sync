@@ -1,6 +1,7 @@
 // sync-adapter-v3-prod.js
 // Production-ready localStorage → Supabase sync adapter for lifemaxxing-v1.html
 // Transparent wrapper, debounced upserts, device_id, seed on load, Netlify-ready
+// v2: Multi-device merge — syncs across ALL devices, merges keys: lm_gym_plan, lm_gym_history, lm_health_diet_log, lm_health_wellness_log, lm_career_history, lm_career_history_by_date
 
 (() => {
   // --- CONFIG (set from HTML env vars or replace here) ---
@@ -104,16 +105,62 @@
     const { createClient } = await waitSupabase();
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
 
-    // Seed from Supabase if local missing
+    // Seed from Supabase if local missing - merge from ALL devices
     await Promise.allSettled(KEYS.map(async k => {
-      if (localStorage.getItem(k)) return;
+      if (localStorage.getItem(k)) {
+        // Merge existing local with all devices on first load
+        const { data } = await supabase.from('local_sync')
+          .select('value,updated_at')
+          .eq('key', k);
+        if (data && data.length > 0) {
+          try {
+            const localParsed = JSON.parse(localStorage.getItem(k) || 'null');
+            let merged = localParsed;
+            let latestTs = localStorage.getItem(k + '_ts') || '1970-01-01';
+            data.forEach(row => {
+              const merger = mergers[k];
+              if (merger && merged) {
+                const remoteVal = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+                merged = merger(merged, remoteVal);
+              } else {
+                const remoteVal = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+                if (!merged || new Date(row.updated_at) > new Date(latestTs)) {
+                  merged = remoteVal;
+                  latestTs = row.updated_at;
+                }
+              }
+              if (new Date(row.updated_at) > new Date(latestTs)) {
+                latestTs = row.updated_at;
+              }
+            });
+            localStorage.setItem(k, JSON.stringify(merged));
+            localStorage.setItem(k + '_ts', latestTs);
+          } catch {}
+        }
+        return;
+      }
       const { data } = await supabase.from('local_sync')
-        .select('value,updated_at').eq('device_id', deviceId).eq('key', k).maybeSingle();
-      if (data?.value) {
+        .select('value,updated_at,key').eq('key', k);
+      if (data && data.length > 0) {
         try {
-          const val = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
-          localStorage.setItem(k, JSON.stringify(val));
-          localStorage.setItem(k + '_ts', data.updated_at);
+          let merged;
+          let latestTs = '1970-01-01';
+          data.forEach(row => {
+            const merger = mergers[k];
+            const remoteVal = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+            if (!merged) {
+              merged = remoteVal;
+            } else if (merger) {
+              merged = merger(merged, remoteVal);
+            } else if (new Date(row.updated_at) > new Date(latestTs)) {
+              merged = remoteVal;
+            }
+            if (new Date(row.updated_at) > new Date(latestTs)) {
+              latestTs = row.updated_at;
+            }
+          });
+          localStorage.setItem(k, JSON.stringify(merged));
+          localStorage.setItem(k + '_ts', latestTs);
         } catch {}
       }
     }));
@@ -133,16 +180,38 @@
       debounceMap.set(key, setTimeout(async () => {
         try {
           const parsed = (() => { try { return JSON.parse(value); } catch { return value; } })();
-          const { data: existing } = await supabase.from('local_sync')
-            .select('updated_at,value').eq('device_id', deviceId).eq('key', key).maybeSingle();
-
+          
+          // Fetch all devices for this key to merge before upsert
+          const { data: allRows } = await supabase.from('local_sync')
+            .select('device_id,updated_at,value').eq('key', key);
+          
           let finalValue = parsed;
-          if (existing?.value) {
+          if (allRows && allRows.length > 0) {
+            // Merge with all devices except current
             const merger = mergers[key];
             if (merger) {
-              finalValue = merger(parsed, existing.value);
-            } else if (new Date(ts) < new Date(existing.updated_at)) {
-              return; // remote newer, keep remote
+              let merged = parsed;
+              allRows.forEach(row => {
+                if (row.device_id === deviceId) return; // skip own row
+                const remoteVal = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+                merged = merger(merged, remoteVal);
+              });
+              finalValue = merged;
+            } else {
+              // Find latest remote
+              const latest = allRows.reduce((latest, row) => {
+                if (row.device_id === deviceId) return latest;
+                if (!latest || new Date(row.updated_at) > new Date(latest.updated_at)) {
+                  return row;
+                }
+                return latest;
+              }, null);
+              if (latest && new Date(ts) < new Date(latest.updated_at)) {
+                // Remote newer, merge or keep remote
+                const remoteVal = typeof latest.value === 'string' ? JSON.parse(latest.value) : latest.value;
+                finalValue = remoteVal;
+                return; // keep remote, don't overwrite
+              }
             }
           }
 
@@ -154,7 +223,6 @@
           }, { onConflict: 'device_id,key' });
         } catch (e) {
           console.warn('[sync] offline queue', key, e);
-          // Simple fallback: retry on next online
         }
       }, DEBOUNCE_MS));
     };
@@ -162,33 +230,65 @@
     // Pull with merge
     const pull = async () => {
       try {
-        const { data } = await supabase.from('local_sync')
-          .select('key,value,updated_at').eq('device_id', deviceId);
-        if (!data) return;
-        data.forEach(row => {
+        // Fetch data from ALL devices, not just this device_id
+        const { data: allRows } = await supabase.from('local_sync')
+          .select('key,value,updated_at,device_id');
+        if (!allRows) return;
+        
+        // Group by key
+        const byKey = {};
+        allRows.forEach(row => {
           if (!KEYS.includes(row.key)) return;
-          const localRaw = origGet(row.key);
-          const localTs = localStorage.getItem(row.key + '_ts');
-          if (!localRaw) {
-            origSet(row.key, JSON.stringify(row.value));
-            localStorage.setItem(row.key + '_ts', row.updated_at);
-            window.dispatchEvent(new CustomEvent('lm_sync_update', { detail: { key: row.key, source: 'remote' }}));
-            return;
-          }
+          if (!byKey[row.key]) byKey[row.key] = [];
+          byKey[row.key].push(row);
+        });
+        
+        Object.entries(byKey).forEach(([key, rows]) => {
+          if (rows.length === 0) return;
+          const localRaw = origGet(key);
+          const localTs = localStorage.getItem(key + '_ts');
           const localTime = new Date(localTs || 0);
-          const remoteTime = new Date(row.updated_at);
-          if (remoteTime > localTime) {
-            const merger = mergers[row.key];
-            let finalValue = row.value;
-            if (merger) {
-              try {
-                const localParsed = JSON.parse(localRaw);
-                finalValue = merger(localParsed, row.value);
-              } catch {}
+          
+          // Merge all devices for this key
+          const merger = mergers[key];
+          let mergedValue;
+          let latestTs = localTime;
+          
+          rows.forEach(row => {
+            const remoteVal = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+            const remoteTime = new Date(row.updated_at);
+            
+            if (!mergedValue) {
+              mergedValue = remoteVal;
+            } else if (merger) {
+              mergedValue = merger(mergedValue, remoteVal);
+            } else if (remoteTime > latestTs) {
+              mergedValue = remoteVal;
+              latestTs = remoteTime;
             }
-            origSet(row.key, JSON.stringify(finalValue));
-            localStorage.setItem(row.key + '_ts', row.updated_at);
-            window.dispatchEvent(new CustomEvent('lm_sync_update', { detail: { key: row.key, source: 'remote' }}));
+            
+            if (remoteTime > latestTs) {
+              latestTs = remoteTime;
+            }
+          });
+          
+          // Merge with local if exists
+          if (localRaw) {
+            try {
+              const localParsed = JSON.parse(localRaw);
+              if (merger) {
+                mergedValue = merger(localParsed, mergedValue);
+              } else if (localTime > latestTs) {
+                mergedValue = localParsed;
+                latestTs = localTime;
+              }
+            } catch {}
+          }
+          
+          if (!localRaw || latestTs > localTime) {
+            origSet(key, JSON.stringify(mergedValue));
+            localStorage.setItem(key + '_ts', latestTs.toISOString());
+            window.dispatchEvent(new CustomEvent('lm_sync_update', { detail: { key, source: 'remote' }}));
           }
         });
       } catch (e) { console.warn('[sync] pull error', e); }
@@ -201,18 +301,16 @@
 
     // Realtime updates
     try {
-      const channel = supabase.channel('sync-' + deviceId)
+      // Listen to ALL changes, not just this device
+      const channel = supabase.channel('sync-all-devices')
         .on('postgres_changes', {
           event: '*',
           schema: 'public',
-          table: 'local_sync',
-          filter: `device_id=eq.${deviceId}`
+          table: 'local_sync'
         }, payload => {
           const k = payload.new?.key;
           if (!KEYS.includes(k)) return;
-          // Avoid loop by checking timestamp
-          const localTs = localStorage.getItem(k + '_ts');
-          if (localTs && new Date(localTs) >= new Date(payload.new.updated_at)) return;
+          // Always pull when any device changes
           pull();
         })
         .subscribe();
