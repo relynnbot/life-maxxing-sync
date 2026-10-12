@@ -1,0 +1,116 @@
+{
+  "user_id": "hermes-user",
+  "routine": "Phase 1: Academics Lock-In (Final-year CE student)",
+  "created": "2026-10-12T23:36:31.528873",
+  "tasks": [
+    {
+      "name": "Wake & Freshen",
+      "time": "08:45",
+      "status": "pending"
+    },
+    {
+      "name": "Overnight Oats",
+      "time": "09:15",
+      "status": "pending"
+    },
+    {
+      "name": "Gym (Mon-Sat)",
+      "time": "10:00",
+      "status": "pending",
+      "frequency": "weekdays"
+    },
+    {
+      "name": "Shower & Rest",
+      "time": "12:00",
+      "status": "pending"
+    },
+    {
+      "name": "Lunch",
+      "time": "12:45",
+      "status": "pending"
+    },
+    {
+      "name": "LP Writeups + Projects (1st)",
+      "time": "13:30",
+      "status": "pending"
+    },
+    {
+      "name": "Break - Away from Laptop",
+      "time": "15:30",
+      "status": "pending"
+    },
+    {
+      "name": "TOC Backlog Study",
+      "time": "16:00",
+      "status": "pending"
+    },
+    {
+      "name": "Walk, Water",
+      "time": "17:45",
+      "status": "pending"
+    },
+    {
+      "name": "Piano",
+      "time": "18:00",
+      "status": "pending"
+    },
+    {
+      "name": "Dinner",
+      "time": "18:45",
+      "status": "pending"
+    },
+    {
+      "name": "Leisure Block",
+      "time": "19:45",
+      "status": "pending"
+    },
+    {
+      "name": "LP Writeups + Projects (2nd)",
+      "time": "21:45",
+      "status": "pending"
+    },
+    {
+      "name": "Screens Off & Wind-down",
+      "time": "23:00",
+      "status": "pending"
+    },
+    {
+      "name": "Sleep",
+      "time": "00:00",
+      "status": "pending"
+    }
+  ],
+  "meal_prep": {
+    "sun": {
+      "time": "16:30",
+      "description": "Prep Mon-Wed lunches (6 chicken rolls)"
+    },
+    "wed": {
+      "time": "16:30",
+      "description": "Prep Thu-Sat lunches (chicken breast + rice + veg)"
+    },
+    "nightly_22:30": "Assemble overnight oats"
+  },
+  "weekend": {
+    "study": "Finance study only, short slot (flexible)",
+    "sunday": "Gym rest + cheat day, at least one protein meal"
+  },
+  "writeup_scope": {
+    "lp_iii": [
+      "DAA",
+      "ML",
+      "BT"
+    ],
+    "lp_iv": [
+      "CSDF",
+      "STQA"
+    ],
+    "total_items": 10,
+    "target": "3-4 days at ~3 hrs/day"
+  },
+  "phase_2_after_submissions": {
+    "career_study": "13:30-15:30 AI roadmap",
+    "daily_study": "16:00-17:45 TOC first then rotating",
+    "evening_finance": "21:45-22:45 weekends only"
+  }
+}
